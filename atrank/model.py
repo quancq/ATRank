@@ -28,6 +28,8 @@ class Model(object):
         self.y = tf.placeholder(tf.float32, [None, ])
 
         # [B, T] user's history item id
+        # hist_i[u,i] chỉ ra user u mua item i nhưng cần dựa trên self.sl
+        # để xác định có đúng không, hay chỉ đó là vị trí dư thừa
         self.hist_i = tf.placeholder(tf.int32, [None, None])
 
         # [B, T] user's history item purchase time
@@ -43,31 +45,45 @@ class Model(object):
         self.is_training = tf.placeholder(tf.bool, [])
 
     def build_model(self, cate_list):
+        # Ma trận embedding của item id
         item_emb_w = tf.get_variable(
             "item_emb_w",
             [self.config['item_count'], self.config['itemid_embedding_size']])
+
+        # Có phải là vector bias ?
         item_b = tf.get_variable(
             "item_b",
             [self.config['item_count'], ],
             initializer=tf.constant_initializer(0.0))
+
+        # Ma trận embedding của category id
         cate_emb_w = tf.get_variable(
             "cate_emb_w",
             [self.config['cate_count'], self.config['cateid_embedding_size']])
+
+        # cate_list là ds category của các item, size = num_items
         cate_list = tf.convert_to_tensor(cate_list, dtype=tf.int64)
 
+        # Trích ra vector embedding của item, cate và nối lại
         i_emb = tf.concat([
             tf.nn.embedding_lookup(item_emb_w, self.i),
             tf.nn.embedding_lookup(cate_emb_w, tf.gather(cate_list, self.i)),
         ], 1)
+
+        # Lấy ra bias tương ứng với item id
         i_b = tf.gather(item_b, self.i)
 
+        # Embedding sẽ thay thế item id bởi item embedding
         h_emb = tf.concat([
             tf.nn.embedding_lookup(item_emb_w, self.hist_i),
             tf.nn.embedding_lookup(cate_emb_w, tf.gather(cate_list, self.hist_i)),
-        ], 2)
+        ], 2) # Concat theo axis = 2
 
         if self.config['concat_time_emb'] == True:
             t_emb = tf.one_hot(self.hist_t, 12, dtype=tf.float32)
+
+            # h_emb là ma trận 3 chiều, 2 chiều đầu thể hiện cặp user và item đã mua,
+            # chiều thứ 3 là concat embedding của item, cate, time
             h_emb = tf.concat([h_emb, t_emb], -1)
             h_emb = tf.layers.dense(h_emb, self.config['hidden_units'])
         else:
