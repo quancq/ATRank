@@ -64,7 +64,7 @@ class Model(object):
         # cate_list là ds category của các item, size = num_items
         cate_list = tf.convert_to_tensor(cate_list, dtype=tf.int64)
 
-        # Trích ra vector embedding của item, cate và nối lại
+        # Trích ra vector embedding của (item, cate) và nối lại
         i_emb = tf.concat([
             tf.nn.embedding_lookup(item_emb_w, self.i),
             tf.nn.embedding_lookup(cate_emb_w, tf.gather(cate_list, self.i)),
@@ -87,6 +87,7 @@ class Model(object):
             h_emb = tf.concat([h_emb, t_emb], -1)
             h_emb = tf.layers.dense(h_emb, self.config['hidden_units'])
         else:
+            # kết quả tf.expand_dims là ma trận có shape = (n_users, n_items, 1)
             t_emb = tf.layers.dense(tf.expand_dims(self.hist_t, -1),
                                     self.config['hidden_units'],
                                     activation=tf.nn.tanh)
